@@ -232,13 +232,13 @@ def hyperparameter_tuning_job_run_op(
     return trials  # pytype: disable=bad-return-type
 
 
-def serialize_parameters(parameters: dict) -> list:
+def serialize_parameters(parameters: dict, to_dict: bool = False) -> list:
     """
     Serializes the hyperparameter tuning parameter spec.
 
     Args:
         parameters (Dict[str, hyperparameter_tuning._ParameterSpec]):
-            Dictionary representing parameters to optimize. The dictionary key is the parameter_id,
+            Dictionary representing parameters to optimize. The dictionary key is the metric_id,
             which is passed into your training job as a command line key word argument, and the
             dictionary value is the parameter specification of the metric.
             from google.cloud.aiplatform import hyperparameter_tuning as hpt
@@ -250,16 +250,43 @@ def serialize_parameters(parameters: dict) -> list:
             Supported parameter specifications can be found until aiplatform.hyperparameter_tuning.
             These parameter specification are currently supported:
             DoubleParameterSpec, IntegerParameterSpec, CategoricalParameterSpace, DiscreteParameterSpec
+        to_dict (bool):
+            If true, will return a list of dict (used for YAML component),
+            otherwise returns a list of JSON strings (used for lightweight python
+            component).
 
     Returns:
         List containing an intermediate JSON representation of the parameter spec
 
     """
+    serializer = study.StudySpec.ParameterSpec.to_dict if to_dict else study.StudySpec.ParameterSpec.to_json
     return [
-      study.StudySpec.ParameterSpec.to_json(
+      serializer(
           parameter._to_parameter_spec(parameter_id=parameter_id))
           for parameter_id, parameter in parameters.items()
     ]
+
+def serialize_metrics(metric_spec: dict) -> list:
+    """
+    Serializes a metric spec that can be consumed by YAML component.
+
+    Args:
+        metric_spec: (Dict[str, str]):
+            Required. Dictionary representing metrics to optimize. The
+            dictionary key is the metric_id, which is reported by your training
+            job, and the dictionary value is the optimization goal of the metric
+            ('minimize' or 'maximize'). example:
+            metrics = {'loss': 'minimize', 'accuracy': 'maximize'}
+
+    Returns:
+        List containing an intermediate JSON representation of the metric spec
+
+    """
+    return [{
+        'metric_id': metric_id,
+        'goal': goal.upper()
+    } for metric_id, goal in metric_spec.items()]
+
 
 if __name__ == '__main__':
     HyperparameterTuningJobRunOp = components.create_component_from_func(
